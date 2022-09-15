@@ -1,7 +1,7 @@
 version: '3'
 
 vars:
-  PROJECT_DIR: './'
+  PROJECT_DIR: '.'
   OUT_DIR: '{{.PROJECT_DIR}}/out'
   OUT_BIN_DIR: '{{.OUT_DIR}}/bin'
 
@@ -15,7 +15,7 @@ tasks:
 
   build:server:
     cmds:
-      - go build -o {{.OUT_BIN_DIR}}/tenancy ./cmd/tenancy/tenancy.go
+      - go build -ldflags="-w -s" -o {{.OUT_BIN_DIR}}/tenancy ./cmd/tenancy/tenancy.go
     preconditions:
       - *go
 
