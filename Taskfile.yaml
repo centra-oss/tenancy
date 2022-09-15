@@ -15,7 +15,7 @@ tasks:
 
   build:server:
     cmds:
-      - go build -ldflags="-w -s" -o {{.OUT_BIN_DIR}}/tenancy ./cmd/tenancy/tenancy.go
+      - go build -o {{.OUT_BIN_DIR}}/tenancy ./cmd/tenancy/tenancy.go
     preconditions:
       - *go
 
