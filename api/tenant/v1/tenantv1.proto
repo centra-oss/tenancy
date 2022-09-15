@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package tenant.v1;
+
+option go_package = "go.h4n.io/centra/tenancy/api/tenant/v1;tenantv1";
+
+message Tenant {
+    string id = 1;
+    string name = 2;
+    string display_name = 3;
+
+    string created_at = 4;
+    string updated_at = 5;
+}
+
+service TenantService {
+    // ListTenants lists all the tenants a given User is associated with
+    rpc ListTenants(ListTenantsRequest) returns (ListTenantsResponse) {}
+}
+
+message ListTenantsRequest {
+    string user_id = 1;
+}
+message ListTenantsResponse {
+    repeated Tenant tenants = 1;
+}
+

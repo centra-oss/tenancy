@@ -1,20 +1,20 @@
 package app
 
 import (
-	"fmt"
 	"log"
+	"net"
 	"net/http"
-	"strings"
-	"time"
 
-	"github.com/gin-gonic/gin"
+	"github.com/grpc-ecosystem/go-grpc-middleware/providers/openmetrics/v2"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/cobra"
-	"go.h4n.io/centra/component-base/logs"
-	"go.h4n.io/centra/tenancy/handlers/v1/tenants"
-)
-
-var (
-	ginLogger gin.HandlerFunc
+	tenantpbv1 "go.h4n.io/centra/tenancy/api/tenant/v1"
+	userpbv1 "go.h4n.io/centra/tenancy/api/user/v1"
+	tenantv1 "go.h4n.io/centra/tenancy/handlers/tenant/v1"
+	userv1 "go.h4n.io/centra/tenancy/handlers/user/v1"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
+	"k8s.io/klog/v2"
 )
 
 func NewTenancyCommand(version string) *cobra.Command {
@@ -23,46 +23,44 @@ func NewTenancyCommand(version string) *cobra.Command {
 		Version:      version,
 		SilenceUsage: true, // hide usage on error
 
-		PersistentPreRun: func(_ *cobra.Command, _ []string) {
-			loggerConfig := gin.LoggerConfig{
-				Formatter: func(params gin.LogFormatterParams) string {
-					b := strings.Builder{}
-					b.WriteString(fmt.Sprintf("%s - ", params.ClientIP))
-					b.WriteString(fmt.Sprintf("%v ", params.Latency))
-					b.WriteString(fmt.Sprintf(`"%s %s" `, params.Method, params.Path))
-					b.WriteString(fmt.Sprintf("%v ", params.StatusCode))
-					b.WriteString(fmt.Sprintf("%v ", params.BodySize))
-					b.WriteString(fmt.Sprintf(`"%v" `, params.Request.UserAgent()))
-
-					return b.String()
-				},
-				Output:    logs.KlogWriter{},
-				SkipPaths: []string{},
-			}
-
-			ginLogger = gin.LoggerWithConfig(loggerConfig)
-
-            gin.SetMode(gin.ReleaseMode)
-		},
-
 		RunE: func(_ *cobra.Command, _ []string) error {
 			log.Println("starting tenancy service...")
 
-			r := gin.New()
-			r.Use(ginLogger)
-			r.Use(gin.Recovery())
+            // Open port 8080
+            l, err := net.Listen("tcp", ":8080")
+            if err != nil {
+                return err
+            }
 
-			r.GET("/v1/tenants", tenants.TenantsIndex)
+            // Configure gRPC server
+            serverMetrics := metrics.NewServerMetrics()
+            s := grpc.NewServer(
+                grpc.ChainStreamInterceptor(
+                    metrics.StreamServerInterceptor(serverMetrics),
+                ),
+                grpc.ChainUnaryInterceptor(
+                    metrics.UnaryServerInterceptor(serverMetrics),
+                ),
+            )
 
-			s := http.Server{
-				Addr:           `:8080`,
-				Handler:        r,
-				ReadTimeout:    10 * time.Second,
-				WriteTimeout:   10 * time.Second,
-				MaxHeaderBytes: 1 << 20,
-			}
+            // Register services
+            userpbv1.RegisterUserServiceServer(s, userv1.UserService{})
+            tenantpbv1.RegisterTenantServiceServer(s, tenantv1.TenantService{})
 
-			return s.ListenAndServe()
+            // Configure schema reflection
+            reflection.Register(s)
+
+            go func() {
+                s := http.Server{
+                    Addr: ":8081",
+                    Handler: promhttp.Handler(),
+                }
+                if err := s.ListenAndServe(); err != nil {
+                    klog.Fatal(err)
+                }
+            }()
+
+            return s.Serve(l)
 		},
 	}
 
