@@ -1,24 +1,27 @@
-# https://taskfile.dev
-
 version: '3'
 
 vars:
-  GREETING: Hello, World!
+  PROJECT_DIR: './'
+  OUT_DIR: '{{.PROJECT_DIR}}/out'
+  OUT_BIN_DIR: '{{.OUT_DIR}}/bin'
 
 tasks:
-  init:
+  vendor:
     cmds:
-      - go mod download
+      - go mod vendor
     preconditions:
       - &go test -x $(command -v go)
+      - *go
 
-  build:tenancy:
+  build:server:
     cmds:
-      - go build -o out/bin/tenancy ./cmd/tenancy/tenancy.go
+      - go build -o {{.OUT_BIN_DIR}}/tenancy ./cmd/tenancy/tenancy.go
     preconditions:
       - *go
 
-  default:
+  run:server:
     cmds:
-      - task build:tenancy
-    silent: true
+      - go run ./cmd/tenancy/tenancy.go
+    preconditions:
+      - *go
+
