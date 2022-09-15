@@ -6,13 +6,19 @@ vars:
   GREETING: Hello, World!
 
 tasks:
+  init:
+    cmds:
+      - go mod download
+    preconditions:
+      - &go test -x $(command -v go)
+
   build:tenancy:
     cmds:
       - go build -o out/bin/tenancy ./cmd/tenancy/tenancy.go
     preconditions:
-      - test -x $(command -v go)
+      - *go
 
   default:
     cmds:
-      - echo "{{.GREETING}}"
+      - task build:tenancy
     silent: true
