@@ -2,19 +2,44 @@ package app
 
 import (
 	"log"
+	"net/http"
+	"time"
 
 	"github.com/spf13/cobra"
+	"go.h4n.io/centra/tenancy/util/notfoundhandler"
+	"go.h4n.io/centra/component-base/healthz"
 )
 
-func NewTenancyCommand() *cobra.Command {
+func NewTenancyCommand(version string) *cobra.Command {
 	cmd := &cobra.Command{
 		Short: `tenancy`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			log.Println("Testing tenancy CLI logging")
+        Version: version,
+        SilenceUsage: true, // hide usage on error
+		RunE: func(_ *cobra.Command, _ []string) error {
+			log.Println("starting tenancy service...")
 
-			return nil
+            m := http.NewServeMux()
+
+            healthz.SetUp("ready for connections")
+
+            notfound := notfoundhandler.New()
+
+            m.HandleFunc("/-/healthz", healthz.Handler)
+
+            m.Handle("/", notfound)
+
+            s := http.Server{
+                Addr: `:8080`,
+                Handler: m,
+                ReadTimeout: 10 * time.Second,
+                WriteTimeout: 10 * time.Second,
+                MaxHeaderBytes: 1 << 20,
+            }
+            
+			return s.ListenAndServe()
 		},
 	}
 
 	return cmd
 }
+

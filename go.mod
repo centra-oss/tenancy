@@ -4,7 +4,7 @@ go 1.18
 
 require (
 	github.com/spf13/cobra v1.5.0
-	go.h4n.io/centra/component-base v0.0.4
+	go.h4n.io/centra/component-base v0.0.5
 )
 
 require (
